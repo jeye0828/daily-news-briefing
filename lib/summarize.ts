@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import type { Headline } from "./news";
 
 export interface Analysis {
@@ -9,7 +9,7 @@ export interface Analysis {
 
 const FALLBACK_ANALYSIS: Analysis = {
   economy:
-    "(테스트 모드) ANTHROPIC_API_KEY가 설정되지 않아 실제 AI 분석 대신 임시 문구를 표시합니다. Vercel 환경변수에 키를 등록하면 실제 경제 흐름 분석이 생성됩니다.",
+    "(테스트 모드) OPENAI_API_KEY가 설정되지 않아 실제 AI 분석 대신 임시 문구를 표시합니다. Vercel 환경변수에 키를 등록하면 실제 경제 흐름 분석이 생성됩니다.",
   society:
     "(테스트 모드) 실제 배포 후에는 이 자리에 수집된 뉴스를 근거로 한 사회 이슈 분석이 표시됩니다.",
   outlook:
@@ -17,20 +17,20 @@ const FALLBACK_ANALYSIS: Analysis = {
 };
 
 export async function generateAnalysis(headlines: Headline[]): Promise<Analysis> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return FALLBACK_ANALYSIS;
   }
 
-  const client = new Anthropic({ apiKey });
+  const client = new OpenAI({ apiKey });
 
   const headlineList = headlines
     .map((h) => `[${h.category}/${h.source}] ${h.title}`)
     .join("\n");
 
-  const message = await client.messages.create({
-    model: "claude-sonnet-5",
-    max_tokens: 1500,
+  const completion = await client.chat.completions.create({
+    model: "gpt-4o-mini",
+    response_format: { type: "json_object" },
     messages: [
       {
         role: "user",
@@ -49,19 +49,17 @@ ${headlineList}
     ],
   });
 
-  const textBlock = message.content.find((b) => b.type === "text");
-  const raw = textBlock && "text" in textBlock ? textBlock.text : "";
+  const raw = completion.choices[0]?.message?.content || "";
 
   try {
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : raw);
+    const parsed = JSON.parse(raw);
     return {
       economy: parsed.economy || FALLBACK_ANALYSIS.economy,
       society: parsed.society || FALLBACK_ANALYSIS.society,
       outlook: parsed.outlook || FALLBACK_ANALYSIS.outlook,
     };
   } catch (err) {
-    console.error("Failed to parse Claude response as JSON:", err, raw);
+    console.error("Failed to parse OpenAI response as JSON:", err, raw);
     return FALLBACK_ANALYSIS;
   }
 }

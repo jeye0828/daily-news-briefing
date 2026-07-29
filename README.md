@@ -1,6 +1,6 @@
 # 데일리 뉴스 브리핑
 
-매일 아침 9시(KST)에 한국 주요 뉴스를 수집하고, Claude가 경제 흐름·사회 이슈·향후 전망을 분석해 보여주는 웹사이트입니다.
+매일 아침 9시(KST)에 한국 주요 뉴스를 수집하고, ChatGPT(OpenAI)가 경제 흐름·사회 이슈·향후 전망을 분석해 보여주는 웹사이트입니다.
 
 ## 로컬 실행
 
@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-`ANTHROPIC_API_KEY`가 없으면 AI 분석 자리에 테스트용 안내 문구가 표시됩니다. `.env.local`에 키를 넣으면 실제 분석이 생성됩니다.
+`OPENAI_API_KEY`가 없으면 AI 분석 자리에 테스트용 안내 문구가 표시됩니다. `.env.local`에 키를 넣으면 실제 분석이 생성됩니다.
 
 브리핑을 수동으로 한 번 생성하려면:
 
@@ -21,7 +21,7 @@ curl http://localhost:3000/api/cron/refresh
 
 1. **Vercel 프로젝트 생성**: [vercel.com/new](https://vercel.com/new)에서 이 GitHub 저장소를 Import
 2. **환경변수 등록** (Project → Settings → Environment Variables)
-   - `ANTHROPIC_API_KEY` — [console.anthropic.com](https://console.anthropic.com)에서 발급
+   - `OPENAI_API_KEY` — [platform.openai.com/api-keys](https://platform.openai.com/api-keys)에서 발급
    - `CRON_SECRET` — 임의의 랜덤 문자열 (cron 엔드포인트 보호용). Vercel이 이 값을 자동으로 크론 요청의 `Authorization: Bearer <값>` 헤더에 실어 보냅니다.
 3. **Vercel KV(또는 Upstash Redis) 스토리지 연결**: Project → Storage → Create Database → KV
    - 연결하면 `KV_REST_API_URL`, `KV_REST_API_TOKEN` 등이 자동으로 환경변수에 추가됩니다.
