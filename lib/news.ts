@@ -34,7 +34,7 @@ const parser = new Parser({
 async function fetchFeed(feed: (typeof FEEDS)[number]): Promise<Headline[]> {
   try {
     const result = await parser.parseURL(feed.url);
-    return (result.items || []).slice(0, 8).map((item) => ({
+    return (result.items || []).slice(0, 12).map((item) => ({
       title: (item.title || "").trim(),
       link: item.link || "",
       source: feed.source,
@@ -65,7 +65,7 @@ export async function collectHeadlines(): Promise<Headline[]> {
     return db - da;
   });
 
-  const perCategoryLimit = 8;
+  const perCategoryLimit = 12;
   const counts: Record<string, number> = {};
   const limited = deduped.filter((h) => {
     counts[h.category] = (counts[h.category] || 0) + 1;

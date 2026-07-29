@@ -1,12 +1,14 @@
 import { unstable_cache, revalidateTag } from "next/cache";
 import { collectHeadlines, type Headline } from "./news";
 import { generateAnalysis, type Analysis } from "./summarize";
+import { classifyIndustries } from "./industries";
 
 export interface Briefing {
   generatedAtUtc: string;
   dateLabel: string;
   headlines: Headline[];
   analysis: Analysis;
+  industryNews: { industry: string; headlines: Headline[] }[];
 }
 
 const TAG = "daily-briefing";
@@ -14,6 +16,7 @@ const TAG = "daily-briefing";
 async function buildBriefing(): Promise<Briefing> {
   const headlines = await collectHeadlines();
   const analysis = await generateAnalysis(headlines);
+  const industryNews = classifyIndustries(headlines);
 
   const now = new Date();
   const dateLabel = new Intl.DateTimeFormat("ko-KR", {
@@ -29,6 +32,7 @@ async function buildBriefing(): Promise<Briefing> {
     dateLabel,
     headlines,
     analysis,
+    industryNews,
   };
 }
 
