@@ -1,7 +1,6 @@
-import fs from "fs";
-import path from "path";
-import type { Headline } from "./news";
-import type { Analysis } from "./summarize";
+import { unstable_cache, revalidateTag } from "next/cache";
+import { collectHeadlines, type Headline } from "./news";
+import { generateAnalysis, type Analysis } from "./summarize";
 
 export interface Briefing {
   generatedAtUtc: string;
@@ -10,33 +9,48 @@ export interface Briefing {
   analysis: Analysis;
 }
 
-const KEY = "daily-news-briefing:latest";
-const LOCAL_PATH = path.join(process.cwd(), ".data", "latest.json");
+const TAG = "daily-briefing";
 
-function hasKv() {
-  return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+async function buildBriefing(): Promise<Briefing> {
+  const headlines = await collectHeadlines();
+  const analysis = await generateAnalysis(headlines);
+
+  const now = new Date();
+  const dateLabel = new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    weekday: "long",
+  }).format(now);
+
+  return {
+    generatedAtUtc: now.toISOString(),
+    dateLabel,
+    headlines,
+    analysis,
+  };
 }
 
-export async function saveBriefing(briefing: Briefing): Promise<void> {
-  if (hasKv()) {
-    const { kv } = await import("@vercel/kv");
-    await kv.set(KEY, briefing);
-    return;
-  }
-  fs.mkdirSync(path.dirname(LOCAL_PATH), { recursive: true });
-  fs.writeFileSync(LOCAL_PATH, JSON.stringify(briefing, null, 2), "utf-8");
-}
+// Cached indefinitely (revalidate: false) using Next.js's built-in Data Cache —
+// no external database needed. Only regenerates when revalidateTag(TAG) is called.
+const getCachedBriefing = unstable_cache(buildBriefing, ["daily-briefing"], {
+  tags: [TAG],
+  revalidate: false,
+});
 
 export async function getLatestBriefing(): Promise<Briefing | null> {
-  if (hasKv()) {
-    const { kv } = await import("@vercel/kv");
-    const data = await kv.get<Briefing>(KEY);
-    return data ?? null;
-  }
   try {
-    const raw = fs.readFileSync(LOCAL_PATH, "utf-8");
-    return JSON.parse(raw) as Briefing;
-  } catch {
+    return await getCachedBriefing();
+  } catch (err) {
+    console.error("Failed to load briefing:", err);
     return null;
   }
+}
+
+export async function refreshBriefing(): Promise<Briefing> {
+  // { expire: 0 } forces immediate expiration so this call gets freshly
+  // regenerated data right away, instead of stale-while-revalidate semantics.
+  revalidateTag(TAG, { expire: 0 });
+  return getCachedBriefing();
 }

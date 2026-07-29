@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { collectHeadlines } from "@/lib/news";
-import { generateAnalysis } from "@/lib/summarize";
-import { saveBriefing } from "@/lib/store";
+import { refreshBriefing } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -25,28 +23,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const headlines = await collectHeadlines();
-    const analysis = await generateAnalysis(headlines);
-
-    const now = new Date();
-    const dateLabel = new Intl.DateTimeFormat("ko-KR", {
-      timeZone: "Asia/Seoul",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      weekday: "long",
-    }).format(now);
-
-    const briefing = {
-      generatedAtUtc: now.toISOString(),
-      dateLabel,
-      headlines,
-      analysis,
-    };
-
-    await saveBriefing(briefing);
-
-    return NextResponse.json({ ok: true, headlineCount: headlines.length, dateLabel });
+    const briefing = await refreshBriefing();
+    return NextResponse.json({
+      ok: true,
+      headlineCount: briefing.headlines.length,
+      dateLabel: briefing.dateLabel,
+    });
   } catch (err) {
     console.error("Cron refresh failed:", err);
     return NextResponse.json({ error: "internal_error" }, { status: 500 });
