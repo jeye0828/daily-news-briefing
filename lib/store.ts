@@ -1,4 +1,4 @@
-import { unstable_cache } from "next/cache";
+import { unstable_cache, revalidateTag } from "next/cache";
 import { collectHeadlines, type Headline } from "./news";
 import { generateAnalysis, type Analysis } from "./summarize";
 import { classifyIndustries } from "./industries";
@@ -62,14 +62,21 @@ async function buildBriefingForDate(dateKey: string): Promise<Briefing | null> {
 }
 
 // Cached per date-key, indefinitely (revalidate: false), using Next.js's
-// built-in Data Cache — no external database needed. Each new calendar day
-// is a natural cache miss (fresh generation); past days stay exactly as
-// they were generated.
-const getCachedBriefingForDate = unstable_cache(
-  buildBriefingForDate,
-  ["daily-briefing-by-date"],
-  { revalidate: false }
-);
+// built-in Data Cache — no external database needed. Each date gets its
+// own cache tag (`briefing:<dateKey>`) so that force-refreshing "today"
+// can never accidentally invalidate — and thus wipe — an archived day.
+function getCachedBriefingForDate(dateKey: string): Promise<Briefing | null> {
+  const cached = unstable_cache(
+    () => buildBriefingForDate(dateKey),
+    ["daily-briefing-by-date", dateKey],
+    { tags: [briefingTag(dateKey)], revalidate: false }
+  );
+  return cached();
+}
+
+function briefingTag(dateKey: string): string {
+  return `briefing:${dateKey}`;
+}
 
 export async function getBriefingForDate(dateKey: string): Promise<Briefing | null> {
   try {
@@ -91,7 +98,14 @@ export async function getLatestBriefing(): Promise<Briefing | null> {
 }
 
 export async function refreshBriefing(): Promise<Briefing | null> {
-  return getBriefingForDate(todayKeyKST());
+  const key = todayKeyKST();
+  // Force today's entry to regenerate even if it was already cached earlier
+  // today (e.g. right after a code change). { expire: 0 } expires
+  // immediately instead of stale-while-revalidate, so this call gets fresh
+  // data back synchronously. Only today's tag is touched — other dates are
+  // untouched.
+  revalidateTag(briefingTag(key), { expire: 0 });
+  return getBriefingForDate(key);
 }
 
 export interface ArchiveEntry {
