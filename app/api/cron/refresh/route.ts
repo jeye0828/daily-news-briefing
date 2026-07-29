@@ -24,6 +24,9 @@ export async function GET(req: NextRequest) {
 
   try {
     const briefing = await refreshBriefing();
+    if (!briefing) {
+      return NextResponse.json({ error: "generation_failed" }, { status: 500 });
+    }
     return NextResponse.json({
       ok: true,
       headlineCount: briefing.headlines.length,
